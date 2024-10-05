@@ -26,8 +26,8 @@ interface WepinContextValue {
 
 const WepinContext = createContext({} as WepinContextValue);
 
-const wepinAppID = "1bbb88795e63e72383de1c46d5483193";
-const wepinAppWebKey = "ak_live_tWiurs3oRQ2oviEZzLHhyyxjZsmf07iJZdROKBAP15X";
+const wepinAppID = process.env.NEXT_PUBLIC_WEPIN_APP_ID || "";
+const wepinAppWebKey = process.env.NEXT_PUBLIC_WEPIN_APP_WEB_KEY || "";
 
 const wepinSdkInstance = new WepinSDK({
   appId: wepinAppID,
