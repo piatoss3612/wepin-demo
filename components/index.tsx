@@ -54,39 +54,13 @@ type providerType =
 
 const WepinBox = () => {
   const [blockchainProvider, setBlockchainProvider] = useState<BaseProvider>();
+  const [isInitialized, setIsInitialized] = useState<boolean>(false);
   const [appStatus, setAppStatus] = useState<WepinLifeCycle>("not_initialized");
   const [registrationNeeded, setRegistrationNeeded] = useState(false);
   const [userDetails, setUserDetails] = useState<IWepinUser | null>(null);
   const [currentAddress, setCurrentAddress] = useState<string | undefined>();
   const [accountDetails, setAccountDetails] = useState<string[] | null>(null);
   const [balance, setBalance] = useState<string | undefined>();
-
-  useEffect(() => {
-    // Initialize Wepin
-    const initializeApp = async () => {
-      try {
-        await wepinSdkInstance.init();
-        await wepinLoginInstance.init();
-        await wepinProvider.init();
-
-        const status = await wepinSdkInstance.getStatus();
-        setAppStatus(status);
-
-        // You must check both the network configured in Wepin Workspace (https://workspace.wepin.io)
-        // and the network supported by the Wepin provider (https://htmlpreview.github.io/?https://github.com/WepinWallet/wepin-web-sdk-v1/blob/main/packages/provider/assets/supportedNetworkTable.html)
-        // to set the provider's network value.
-        // To use this example code, the Ethereum network must be enabled for the app in Wepin Workspace.
-        setBlockchainProvider(await wepinProvider.getProvider("ethereum"));
-
-        if (status === "login_before_register") {
-          setRegistrationNeeded(true);
-        }
-      } catch (error) {
-        console.error("Error during initialization:", error);
-      }
-    };
-    initializeApp();
-  }, []);
 
   const loginWithUI = async () => {
     try {
@@ -106,6 +80,8 @@ const WepinBox = () => {
         provider: "google",
       });
       const userInfo = await wepinLoginInstance.loginWepin(oauthUser);
+
+      console.log("OAuth user:", userInfo);
       const status = await wepinSdkInstance.getStatus();
       setAppStatus(status);
       setUserDetails(userInfo);
@@ -153,8 +129,6 @@ const WepinBox = () => {
       const accounts: string[] = (await blockchainProvider.request({
         method: "eth_accounts",
       })) as string[];
-
-      console.log("Accounts:", accounts);
 
       setAccountDetails(accounts);
       setCurrentAddress(blockchainProvider.selectedAddress ?? undefined);
@@ -249,6 +223,49 @@ const WepinBox = () => {
     }
   };
 
+  useEffect(() => {
+    // Initialize Wepin
+    const initializeApp = async () => {
+      try {
+        await wepinSdkInstance.init();
+        await wepinLoginInstance.init();
+        await wepinProvider.init();
+
+        const status = await wepinSdkInstance.getStatus();
+        setAppStatus(status);
+
+        // You must check both the network configured in Wepin Workspace (https://workspace.wepin.io)
+        // and the network supported by the Wepin provider (https://htmlpreview.github.io/?https://github.com/WepinWallet/wepin-web-sdk-v1/blob/main/packages/provider/assets/supportedNetworkTable.html)
+        // to set the provider's network value.
+        // To use this example code, the Ethereum network must be enabled for the app in Wepin Workspace.
+        setBlockchainProvider(await wepinProvider.getProvider("ethereum"));
+
+        if (status === "login_before_register") {
+          setRegistrationNeeded(true);
+        }
+
+        setIsInitialized(true);
+      } catch (error) {
+        console.error("Error during initialization:", error);
+      }
+    };
+    initializeApp();
+  }, []);
+
+  useEffect(() => {
+    const loadUserDetails = async () => {
+      if (isInitialized && appStatus === "login" && !userDetails) {
+        const userInfo = await wepinLoginInstance.getCurrentWepinUser();
+
+        // delete token from userInfo (overflows the view port)
+        delete userInfo.token;
+        setUserDetails(userInfo);
+      }
+    };
+
+    loadUserDetails();
+  }, [isInitialized, appStatus, userDetails]);
+
   const loggedOutContent = (
     <div className="flex flex-col items-center justify-center gap-4">
       <Button onClick={loginWithUI} text="Login with Wepin UI" />
@@ -259,9 +276,11 @@ const WepinBox = () => {
   const loggedInContent = (
     <div className="flex flex-col items-center justify-center gap-4">
       <p>Welcome, {userDetails?.userInfo?.email}</p>
-      <pre className="border border-gray-400 p-4 mt-4">
-        {JSON.stringify(userDetails, null, 2)}
-      </pre>
+      {userDetails && (
+        <pre className="border border-gray-400 p-4 mt-4">
+          {JSON.stringify(userDetails, null, 2)}
+        </pre>
+      )}
       <div className="grid grid-cols-2 gap-4">
         {registrationNeeded ? (
           <Button onClick={registerWepin} text="Registration" loggedIn={true} />
@@ -279,10 +298,17 @@ const WepinBox = () => {
               text="Send Transaction"
               loggedIn={true}
             />
+            <Button
+              onClick={() => {
+                wepinSdkInstance.openWidget();
+              }}
+              text="Open Widget"
+              loggedIn={true}
+            />
+            <Button onClick={logout} text="Sign Out" loggedIn={true} />
           </>
         )}
       </div>
-      <Button onClick={logout} text="Sign Out" />
 
       {accountDetails && (
         <div className="border border-gray-400 p-4 mt-4">
