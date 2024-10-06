@@ -1,30 +1,8 @@
-"use client";
-
-import { createContext, useEffect, useState } from "react";
-import { WepinLogin } from "@wepin/login-js";
+import React, { useEffect, useState } from "react";
+import Button from "./Button";
 import { WepinLifeCycle, WepinSDK } from "@wepin/sdk-js";
-import { BaseProvider, WepinProvider as Provider } from "@wepin/provider-js";
-
-interface WepinContextValue {
-  loginWithUI: () => void;
-  loginWithOAuth: () => void;
-  logout: () => void;
-  registerWepin: () => void;
-  getAccounts: () => void;
-  getBalance: () => void;
-  signMessage: (message: string) => void;
-  sendTransaction: (to: string, amount: string) => void;
-  signMessageDialog: () => void;
-  sendTransactionDialog: () => void;
-  userDetails: IWepinUser | null;
-  currentAddress: string | undefined;
-  accountDetails: string[] | null;
-  balance: string | undefined;
-  appStatus: WepinLifeCycle;
-  registrationNeeded: boolean;
-}
-
-const WepinContext = createContext({} as WepinContextValue);
+import { WepinLogin } from "@wepin/login-js";
+import { BaseProvider, WepinProvider } from "@wepin/provider-js";
 
 const wepinAppID = process.env.NEXT_PUBLIC_WEPIN_APP_ID || "";
 const wepinAppWebKey = process.env.NEXT_PUBLIC_WEPIN_APP_WEB_KEY || "";
@@ -39,7 +17,7 @@ const wepinLoginInstance = new WepinLogin({
   appKey: wepinAppWebKey,
 });
 
-const wepinProvider = new Provider({
+const wepinProvider = new WepinProvider({
   appId: wepinAppID,
   appKey: wepinAppWebKey,
 });
@@ -74,7 +52,7 @@ type providerType =
   | "naver"
   | "external_token";
 
-const WepinProvider = ({ children }: { children: React.ReactNode }) => {
+const WepinBox = () => {
   const [blockchainProvider, setBlockchainProvider] = useState<BaseProvider>();
   const [appStatus, setAppStatus] = useState<WepinLifeCycle>("not_initialized");
   const [registrationNeeded, setRegistrationNeeded] = useState(false);
@@ -172,12 +150,13 @@ const WepinProvider = ({ children }: { children: React.ReactNode }) => {
       return;
     }
     try {
-      const accounts: {
-        result: string[];
-      } = (await blockchainProvider.request({
+      const accounts: string[] = (await blockchainProvider.request({
         method: "eth_accounts",
-      })) as { result: string[] };
-      setAccountDetails(accounts.result);
+      })) as string[];
+
+      console.log("Accounts:", accounts);
+
+      setAccountDetails(accounts);
       setCurrentAddress(blockchainProvider.selectedAddress ?? undefined);
     } catch (error) {
       console.error("Error fetching accounts:", error);
@@ -270,30 +249,68 @@ const WepinProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  return (
-    <WepinContext.Provider
-      value={{
-        loginWithUI,
-        loginWithOAuth,
-        logout,
-        registerWepin,
-        getAccounts,
-        getBalance,
-        signMessage,
-        sendTransaction,
-        signMessageDialog,
-        sendTransactionDialog,
-        userDetails,
-        currentAddress,
-        accountDetails,
-        balance,
-        appStatus,
-        registrationNeeded,
-      }}
-    >
-      {children}
-    </WepinContext.Provider>
+  const loggedOutContent = (
+    <div className="flex flex-col items-center justify-center gap-4">
+      <Button onClick={loginWithUI} text="Login with Wepin UI" />
+      <Button onClick={loginWithOAuth} text="Login with OAuth" />
+    </div>
   );
+
+  const loggedInContent = (
+    <div className="flex flex-col items-center justify-center gap-4">
+      <p>Welcome, {userDetails?.userInfo?.email}</p>
+      <pre className="border border-gray-400 p-4 mt-4">
+        {JSON.stringify(userDetails, null, 2)}
+      </pre>
+      <div className="grid grid-cols-2 gap-4">
+        {registrationNeeded ? (
+          <Button onClick={registerWepin} text="Registration" loggedIn={true} />
+        ) : (
+          <>
+            <Button onClick={getAccounts} text="Get Accounts" loggedIn={true} />
+            <Button onClick={getBalance} text="Get Balance" loggedIn={true} />
+            <Button
+              onClick={signMessageDialog}
+              text="Sign Message"
+              loggedIn={true}
+            />
+            <Button
+              onClick={sendTransactionDialog}
+              text="Send Transaction"
+              loggedIn={true}
+            />
+          </>
+        )}
+      </div>
+      <Button onClick={logout} text="Sign Out" />
+
+      {accountDetails && (
+        <div className="border border-gray-400 p-4 mt-4">
+          <p className="font-bold text-lg">Accounts:</p>
+          <pre className="text-sm">
+            {JSON.stringify(accountDetails, null, 2)}
+          </pre>
+        </div>
+      )}
+
+      {balance && (
+        <div className="border border-gray-400 p-4 mt-4">
+          <p className="font-bold text-lg">Balance:</p>
+          <span className="text-sm">{balance}</span>
+        </div>
+      )}
+    </div>
+  );
+
+  if (appStatus === "initializing") {
+    return <p>Loading...</p>;
+  }
+
+  if (appStatus === "login") {
+    return loggedInContent;
+  }
+
+  return loggedOutContent;
 };
 
-export { WepinContext, WepinProvider };
+export default WepinBox;
