@@ -19,4 +19,4 @@ Access to fetch at 'https://sdk.wepin.io/v1/user/firebase-config' from origin 'h
 
 ### Solution
 
-- 아직 해결하지 못함
+- ~~아직 해결하지 못함~~ (앱 삭제하고 다시 만들어서 해결)

@@ -3,6 +3,7 @@ import Button from "./Button";
 import { WepinLifeCycle, WepinSDK } from "@wepin/sdk-js";
 import { WepinLogin } from "@wepin/login-js";
 import { BaseProvider, WepinProvider } from "@wepin/provider-js";
+import { formatEther, fromHex } from "viem";
 
 const wepinAppID = process.env.NEXT_PUBLIC_WEPIN_APP_ID || "";
 const wepinAppWebKey = process.env.NEXT_PUBLIC_WEPIN_APP_WEB_KEY || "";
@@ -74,25 +75,6 @@ const WepinBox = () => {
     }
   };
 
-  const loginWithOAuth = async () => {
-    try {
-      const oauthUser = await wepinLoginInstance.loginWithOauthProvider({
-        provider: "google",
-      });
-      const userInfo = await wepinLoginInstance.loginWepin(oauthUser);
-
-      console.log("OAuth user:", userInfo);
-      const status = await wepinSdkInstance.getStatus();
-      setAppStatus(status);
-      setUserDetails(userInfo);
-      if (appStatus === "login_before_register") {
-        setRegistrationNeeded(true);
-      }
-    } catch (error) {
-      console.error("OAuth login failed:", error);
-    }
-  };
-
   const logout = async () => {
     try {
       await wepinSdkInstance.logout();
@@ -147,11 +129,12 @@ const WepinBox = () => {
       return;
     }
     try {
-      const balanceValue = await blockchainProvider.request({
+      const balanceValue: `0x${string}` = (await blockchainProvider.request({
         method: "eth_getBalance",
         params: [currentAddress, "latest"],
-      });
-      setBalance(balanceValue as string);
+      })) as `0x${string}`;
+
+      setBalance(`${formatEther(fromHex(balanceValue, "bigint"))} ETH`);
     } catch (error) {
       console.error("Error fetching balance:", error);
     }
@@ -238,7 +221,9 @@ const WepinBox = () => {
         // and the network supported by the Wepin provider (https://htmlpreview.github.io/?https://github.com/WepinWallet/wepin-web-sdk-v1/blob/main/packages/provider/assets/supportedNetworkTable.html)
         // to set the provider's network value.
         // To use this example code, the Ethereum network must be enabled for the app in Wepin Workspace.
-        setBlockchainProvider(await wepinProvider.getProvider("ethereum"));
+        setBlockchainProvider(
+          await wepinProvider.getProvider("evmeth-sepolia")
+        );
 
         if (status === "login_before_register") {
           setRegistrationNeeded(true);
@@ -269,7 +254,6 @@ const WepinBox = () => {
   const loggedOutContent = (
     <div className="flex flex-col items-center justify-center gap-4">
       <Button onClick={loginWithUI} text="Login with Wepin UI" />
-      <Button onClick={loginWithOAuth} text="Login with OAuth" />
     </div>
   );
 
@@ -281,7 +265,7 @@ const WepinBox = () => {
           {JSON.stringify(userDetails, null, 2)}
         </pre>
       )}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-3 gap-4">
         {registrationNeeded ? (
           <Button onClick={registerWepin} text="Registration" loggedIn={true} />
         ) : (
