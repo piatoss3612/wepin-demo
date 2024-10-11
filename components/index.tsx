@@ -3,7 +3,7 @@ import Button from "./Button";
 import { WepinLifeCycle, WepinSDK } from "@wepin/sdk-js";
 import { WepinLogin } from "@wepin/login-js";
 import { BaseProvider, WepinProvider } from "@wepin/provider-js";
-import { formatEther, fromHex } from "viem";
+import { formatEther, fromHex, toHex } from "viem";
 
 const wepinAppID = process.env.NEXT_PUBLIC_WEPIN_APP_ID || "";
 const wepinAppWebKey = process.env.NEXT_PUBLIC_WEPIN_APP_WEB_KEY || "";
@@ -55,6 +55,7 @@ type providerType =
 
 const WepinBox = () => {
   const [blockchainProvider, setBlockchainProvider] = useState<BaseProvider>();
+  const [chainId, setChainId] = useState<string | undefined>();
   const [isInitialized, setIsInitialized] = useState<boolean>(false);
   const [appStatus, setAppStatus] = useState<WepinLifeCycle>("not_initialized");
   const [registrationNeeded, setRegistrationNeeded] = useState(false);
@@ -170,13 +171,15 @@ const WepinBox = () => {
       return;
     }
     try {
+      const hexAmount = toHex(amount);
+
       const txHash = await blockchainProvider.request({
         method: "eth_sendTransaction",
         params: [
           {
             from: currentAddress,
             to,
-            value: amount,
+            value: hexAmount,
           },
         ],
       });
@@ -221,8 +224,16 @@ const WepinBox = () => {
         // and the network supported by the Wepin provider (https://htmlpreview.github.io/?https://github.com/WepinWallet/wepin-web-sdk-v1/blob/main/packages/provider/assets/supportedNetworkTable.html)
         // to set the provider's network value.
         // To use this example code, the Ethereum network must be enabled for the app in Wepin Workspace.
-        setBlockchainProvider(
-          await wepinProvider.getProvider("evmeth-sepolia")
+        const provider: BaseProvider = await wepinProvider.getProvider(
+          "evmeth-sepolia"
+        );
+
+        setBlockchainProvider(provider);
+        setChainId(
+          fromHex(
+            (provider?.chainId as `0x${string}`) ?? "0x0",
+            "bigint"
+          ).toString()
         );
 
         if (status === "login_before_register") {
@@ -293,6 +304,14 @@ const WepinBox = () => {
           </>
         )}
       </div>
+      {
+        <div className="border border-gray-400 p-4 mt-4">
+          <p className="font-bold text-lg">Current Network:</p>
+          <span className="text-sm">
+            {chainId ? `Chain ID: ${chainId}` : "Not connected"}
+          </span>
+        </div>
+      }
 
       {accountDetails && (
         <div className="border border-gray-400 p-4 mt-4">
